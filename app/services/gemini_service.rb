@@ -10,39 +10,36 @@ class GeminiService
     @google_gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     @api_key = ENV['GOOGLE_GEMINI_API_KEY']
 
-    # 🎯 Tema-tema relevan untuk Doterb.com (IT Service & Web Development)
+    # 🎯 Relevant themes for Doterb.com (IT Service & Web Development)
     @themes = load_themes_from_file("themes.txt")
 
-    # 📸 Gambar yang relevan dengan tema IT dan bisnis
+    # 📸 Image categories relevant to IT and business
     @image_categories = ["tech", "business", "data", "office", "innovation", "startup"]
   end
 
   def generate_post
     random_theme = @themes.sample
     random_quote = [
-      "\"Website bukan sekadar tampilan, tapi representasi kepercayaan digital perusahaan Anda.\"",
-      "\"Transformasi digital bukan pilihan, tapi kebutuhan untuk tetap relevan.\"",
-      "\"Sistem yang efisien lahir dari kolaborasi antara strategi dan teknologi.\"",
-      "\"Teknologi membantu bisnis berkembang lebih cepat dan cerdas.\""
+      "\"A website is not just a display it's your company's digital trust representation.\"",
+      "\"Digital transformation is not an option, it's a necessity to stay relevant.\"",
+      "\"Efficient systems are born from collaboration between strategy and technology.\"",
+      "\"Technology helps businesses grow faster and smarter.\""
     ].sample
 
     timestamp = Time.now.strftime("%Y-%m-%d %H:%M:%S")
     random_id = SecureRandom.hex(4)
 
-    # 📷 Ambil gambar acak dari Unsplash
+    # 📷 Fetch a random image from Unsplash
     random_category = @image_categories.sample
     image_url = "https://source.unsplash.com/800x400/?#{random_category}"
 
-
-    # Generate image based on the random theme
+    # 🖼️ Generate image via AI (if available)
     image_result = TextToImageService.generate_image_base64(random_theme)
-    # Check if the image generation was successful
     image_url = ImageUploaderService.new(image_result[:base64_image]).upload_image if image_result[:success]
 
-
-    # 🧠 Prompt AI
+    # 🧠 Prompt for Gemini API
     prompt = <<~PROMPT
-      Write a complete blog article in **Indonesian only** for a professional IT service company called **Doterb** (https://doterb.com).
+      Write a complete blog article in **English only** for a professional IT service company called **Doterb** (https://doterb.com).
 
       Company background:
       - Doterb is a web development and IT solutions company.
@@ -70,17 +67,11 @@ class GeminiService
       - Avoid overly promotional tone, focus on providing value and insights
 
       Example CTA:
-      "Jika bisnis Anda ingin memiliki website atau sistem digital yang efisien, hubungi tim Doterb hari ini."
+      "If your business needs an efficient website or digital system, contact the Doterb team today."
     PROMPT
 
     body = {
-      contents: [
-        {
-          parts: [
-            { text: prompt }
-          ]
-        }
-      ]
+      contents: [{ parts: [{ text: prompt }] }]
     }.to_json
 
     c = Curl::Easy.new(@google_gemini_api_url)
@@ -95,21 +86,26 @@ class GeminiService
         content = parsed.dig("candidates", 0, "content", "parts", 0, "text")
         raise "No content found" unless content
 
-        # Ambil hanya isi <div class="article-wrapper">...</div>
+        # Extract only the <div class="article-wrapper">...</div> part
         if content =~ /<div.*<\/div>/m
           content = content.strip.match(/<div.*<\/div>/m)[0]
         end
 
-        # Tambahkan gambar di awal artikel
-        content_with_image = content.sub('<div', "<div><img src=\"#{image_url}\" alt=\"Tech image\" loading=\"lazy\"><div")
+        # Insert image at the top of the article
+        content_with_image = content.sub(
+          '<div',
+          "<div style=\"text-align:center; margin:20px 0;\"><img src=\"#{image_url}\" alt=\"Random image\" loading=\"lazy\" style=\"display:block; margin:0 auto; width:100%; max-width:300px; height:auto; border-radius:10px; object-fit:contain;\" /></div><div"
+        )
 
         title = extract_title_from_html(content_with_image)
         content_final = sanitize_html(content_with_image)
+        keywords = generate_keywords(random_theme, content_final)
 
         return {
           title: title,
           content: content_final,
           theme: random_theme,
+          keywords: keywords,
           generated_at: timestamp
         }
       else
@@ -125,7 +121,7 @@ class GeminiService
 
   def extract_title_from_html(html)
     doc = Nokogiri::HTML.fragment(html)
-    doc.at('h1')&.text || "Artikel Teknologi dari Doterb"
+    doc.at('h1')&.text || "Technology Article by Doterb"
   end
 
   def sanitize_html(html)
@@ -134,5 +130,21 @@ class GeminiService
 
   def load_themes_from_file(file_path)
     File.readlines(file_path).map(&:strip).reject(&:empty?)
+  end
+
+  # ✨ Automatically generate keywords from the theme and article content
+  def generate_keywords(theme, content)
+    base_keywords = [
+      "technology", "web development", "digital transformation", "IT solutions", 
+      "business website", "information systems", "startup", "innovation", "Doterb"
+    ]
+
+    theme_words = theme.downcase.split(/\W+/).uniq
+    content_words = Nokogiri::HTML(content).text.downcase.scan(/\b[a-zA-Z]+\b/)
+    common_words = (theme_words + content_words).uniq
+
+    # Select relevant words (longer than 4 letters, not common stopwords)
+    filtered = common_words.select { |w| w.length > 4 && !%w[untuk dalam dengan yang adalah pada].include?(w) }
+    (base_keywords + filtered.sample(5)).uniq.first(10)
   end
 end

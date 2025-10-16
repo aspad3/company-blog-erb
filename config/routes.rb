@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   # Devise routes for users, including omniauth_callbacks for Google OAuth2
-  devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
+  # devise_for :users, controllers: { omniauth_callbacks: 'omniauth_callbacks' }
 
   # Optional: Custom routes (avoid conflicting with Devise)
   # If you need a custom sign-in route, make sure it's unique and doesn't conflict with Devise's default sign-in route.

@@ -1,0 +1,91 @@
+name: Run Rake Task Twice a Day
+
+on:
+  schedule:
+    - cron: '0 6,18 * * *'  # 6 pagi & 6 malam
+  workflow_dispatch:
+
+jobs:
+  run_rake_task:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2️⃣ Install libcurl headers
+      - name: Install libcurl development headers
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+      # 3️⃣ Setup Ruby
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.4'
+
+      # 4️⃣ Cache Ruby gems
+      - name: Cache Ruby gems
+        uses: actions/cache@v3
+        with:
+          path: ~/.bundle
+          key: ${{ runner.os }}-bundle-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bundle-
+
+      # 5️⃣ Install Bundler
+      - name: Install Bundler
+        run: gem install bundler
+
+      # 6️⃣ Install dependencies
+      - name: Install dependencies
+        run: bundle install
+
+      # 7️⃣ Refresh Google Tokens (Access + optional Refresh)
+      - name: Get Google Tokens
+        id: get_tokens
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          resp=$(curl -s -X POST https://oauth2.googleapis.com/token \
+            -d client_id="$GOOGLE_CLIENT_ID" \
+            -d client_secret="$GOOGLE_CLIENT_SECRET" \
+            -d refresh_token="$GOOGLE_REFRESH_TOKEN" \
+            -d grant_type=refresh_token)
+
+          access_token=$(echo "$resp" | python3 -c "import sys, json; j=json.load(sys.stdin); print(j.get('access_token',''))")
+          new_refresh_token=$(echo "$resp" | python3 -c "import sys, json; j=json.load(sys.stdin); print(j.get('refresh_token',''))")
+
+          if [ -z "$access_token" ]; then
+            echo "Failed to get access_token"
+            echo "$resp"
+            exit 1
+          fi
+
+          # Mask tokens di log
+          echo "::add-mask::$access_token"
+          [ -n "$new_refresh_token" ] && echo "::add-mask::$new_refresh_token"
+
+          # Set tokens untuk step selanjutnya
+          echo "GOOGLE_ACCESS_TOKEN=$access_token" >> $GITHUB_ENV
+
+          if [ -n "$new_refresh_token" ]; then
+            echo "GOOGLE_REFRESH_TOKEN=$new_refresh_token" >> $GITHUB_ENV
+            echo "Refresh token updated for this workflow run"
+          else
+            echo "No new refresh token returned"
+          fi
+
+      # 8️⃣ Run Rake Task dengan token terbaru
+      - name: Run Rake Task
+        env:
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          CLIPDROP_API_KEY: ${{ secrets.CLIPDROP_API_KEY }}
+          FREEIMAGE_API_KEY: ${{ secrets.FREEIMAGE_API_KEY }}
+          # GOOGLE_ACCESS_TOKEN & GOOGLE_REFRESH_TOKEN sudah di-set di step sebelumnya
+        run: bundle exec rake pipeline_post:create_post
