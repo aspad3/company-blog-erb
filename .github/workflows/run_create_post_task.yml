@@ -41,45 +41,6 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
-      # 7️⃣ Refresh Google Tokens (Access + optional Refresh)
-      - name: Get Google Tokens
-        id: get_tokens
-        env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          resp=$(curl -s -X POST https://oauth2.googleapis.com/token \
-            -d client_id="$GOOGLE_CLIENT_ID" \
-            -d client_secret="$GOOGLE_CLIENT_SECRET" \
-            -d refresh_token="$GOOGLE_REFRESH_TOKEN" \
-            -d grant_type=refresh_token)
-
-          access_token=$(echo "$resp" | python3 -c "import sys, json; j=json.load(sys.stdin); print(j.get('access_token',''))")
-          new_refresh_token=$(echo "$resp" | python3 -c "import sys, json; j=json.load(sys.stdin); print(j.get('refresh_token',''))")
-
-          if [ -z "$access_token" ]; then
-            echo "Failed to get access_token"
-            echo "$resp"
-            exit 1
-          fi
-
-          # Mask tokens di log
-          echo "::add-mask::$access_token"
-          [ -n "$new_refresh_token" ] && echo "::add-mask::$new_refresh_token"
-
-          # Set tokens untuk step selanjutnya
-          echo "GOOGLE_ACCESS_TOKEN=$access_token" >> $GITHUB_ENV
-
-          if [ -n "$new_refresh_token" ]; then
-            echo "GOOGLE_REFRESH_TOKEN=$new_refresh_token" >> $GITHUB_ENV
-            echo "Refresh token updated for this workflow run"
-          else
-            echo "No new refresh token returned"
-          fi
-
       # 8️⃣ Run Rake Task dengan token terbaru
       - name: Run Rake Task
         env:
