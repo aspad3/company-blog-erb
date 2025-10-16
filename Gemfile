@@ -71,6 +71,7 @@ gem 'omniauth-rails_csrf_protection'
 gem 'curb'
 gem 'whenever', require: false
 gem 'rubocop'
+gem 'mime-types'
 
 
 

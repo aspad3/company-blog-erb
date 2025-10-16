@@ -106,6 +106,7 @@ class GeminiService
           content: content_final,
           theme: random_theme,
           keywords: keywords,
+          image_url: image_url,
           generated_at: timestamp
         }
       else
