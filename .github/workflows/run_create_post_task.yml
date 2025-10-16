@@ -44,9 +44,10 @@ jobs:
       # 8️⃣ Run Rake Task dengan token terbaru
       - name: Run Rake Task
         env:
-          BLOG_ID: ${{ secrets.BLOG_ID }}
           GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
           CLIPDROP_API_KEY: ${{ secrets.CLIPDROP_API_KEY }}
           FREEIMAGE_API_KEY: ${{ secrets.FREEIMAGE_API_KEY }}
-          # GOOGLE_ACCESS_TOKEN & GOOGLE_REFRESH_TOKEN sudah di-set di step sebelumnya
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
         run: bundle exec rake pipeline_post:create_post
+
