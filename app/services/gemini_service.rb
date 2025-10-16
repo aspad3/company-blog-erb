@@ -94,7 +94,7 @@ class GeminiService
         # Insert image at the top of the article
         content_with_image = content.sub(
           '<div',
-          "<div style=\"text-align:center; margin:20px 0;\"><img src=\"#{image_url}\" alt=\"Random image\" loading=\"lazy\" style=\"display:block; margin:0 auto; width:100%; max-width:300px; height:auto; border-radius:10px; object-fit:contain;\" /></div><div"
+          "<div style=\"text-align:center; margin:20px 0;\"><img src=\"#{image_url}\" alt=\"#{random_theme}\" loading=\"lazy\" style=\"display:block; margin:0 auto; width:100%; max-width:300px; height:auto; border-radius:10px; object-fit:contain;\" /></div><div"
         )
 
         title = extract_title_from_html(content_with_image)
