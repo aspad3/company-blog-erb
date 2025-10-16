@@ -36,7 +36,9 @@ class PipelinePostService
     end
 
     # Post the article with the unique title
-    @blogger_service.new(title: title, content: content, status: "publish", keywords: keywords).call
+    post = @blogger_service.new(title: title, content: content, status: "publish", keywords: keywords).call
+    puts "Post titled '#{title}' has been published successfully. View it here: #{post[:link]}"
+    post
   end
 
   private
